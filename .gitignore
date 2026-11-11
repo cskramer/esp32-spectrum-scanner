@@ -1,0 +1,11 @@
+# PlatformIO build output
+.pio/
+
+# Editor settings
+.vscode/
+*.swp
+.DS_Store
+
+# Packet captures (may contain nearby devices' MAC addresses)
+*.pcap
+*.pcapng
