@@ -1,192 +1,93 @@
-# Wi-Fi EQ — ESP32 2.4 GHz Spectrum Scanner
+# Wi-Fi EQ
 
-A pocket Wi-Fi scanner for the ESP32-32E 2.8" display board that shows the 2.4 GHz band as a live, music-style graphic equalizer — plus a list of nearby networks, a scrolling live packet feed, and packet capture to microSD in standard `.pcap` format for Wireshark.
+**See Wi-Fi like music.** Wi-Fi EQ turns a cheap ESP32 display board into a handheld Wi-Fi scanner. It shows the airwaves as a live, animated graphic equalizer, lists the networks around you, shows packets as they fly by, and can record traffic to microSD for analysis in Wireshark.
 
 Everything is **receive-only**: the device listens passively and never transmits.
 
 ---
 
-## Features
+## Two versions
 
-**Spectrum screen**
-- 36 animated LED-segment bars spanning 2400–2484 MHz, with fast attack, slow fall and floating peak caps
-- Each Wi-Fi channel's strongest signal is spread across the ~22 MHz it actually occupies, so overlapping channels look the way they really behave
-- Labeled axes: signal strength (dBm) on the left, Wi-Fi channels 1–13 along the bottom
-- Scan marker showing which channel is being listened to
-- Live list of the 12 strongest networks: channel, signal, SSID and a strength bar (mesh nodes/extenders with the same name are merged; hidden networks shown as `<hidden>`)
-- Header shows networks heard and packets per second
+This repository holds two separate PlatformIO projects, one per board. Pick the folder that matches your hardware.
 
-**Live packets screen**
-- Scrolling feed of packets as they arrive: channel, signal, frame type, transmitter MAC address and network name (where the packet carries one)
-- Color-coded frame types:
-
-| Color | Types | Meaning |
+| | [`esp32/`](esp32) — Original | [`esp32-c5/`](esp32-c5) — Dual-Band |
 |---|---|---|
-| Cyan | `BEACON`, `PROBER` | Access points announcing themselves |
-| Yellow | `PROBEQ` | Devices searching for networks (`(any)` = wildcard search) |
-| Green | `AUTH`, `ASSOC*`, `REASS*` | Devices joining a network |
-| Red | `DEAUTH`, `DISASC` | Devices being disconnected |
-| Magenta | `DATA`, `QOS`, `NULL` | Traffic (headers only — payloads are encrypted and never decoded) |
+| **Board** | ESP32-32E 2.8" display (240×320) | RockBase NM-CYD-C5 2.8" display (240×320) |
+| **Chip** | ESP32 (Xtensa dual-core) | ESP32-C5 (RISC-V) |
+| **Wi-Fi bands** | 2.4 GHz | 2.4 GHz **and** 5 GHz |
+| **Wi-Fi 6 detection** | — | ✓ networks marked **AX** |
+| **Spectrum display** | One 2.4 GHz equalizer | 2.4 GHz and 5 GHz equalizers on one screen |
+| **Network list** | 12 strongest networks | 10 strongest across both bands, with channel width |
+| **Live packet view** | ✓ | ✓ |
+| **Record to microSD (.pcap)** | ✓ | ✓ per band: 2.4, 5 or both |
+| **Controls** | BOOT button | Touchscreen buttons + BOOT button |
+| **Hold one channel** | — | ✓ tap a bar or the HOLD button |
+| **PlatformIO platform** | `espressif32` | `pioarduino` (Arduino core 3.3+) |
 
-**Recording**
-- Captures every packet heard to `/cap_NNNN.pcap` on the microSD card
-- Radiotap headers include channel frequency and signal strength, so Wireshark shows both per packet
-- New numbered file per recording — nothing is overwritten
-- Blinking red **REC** indicator with packet count and MB written
-- Flushes to the card every 2 seconds to limit loss on power cut
+Each folder has its own README with full hardware details, installation steps, controls and troubleshooting:
 
----
-
-## Hardware
-
-### Board: ESP32-32E 2.8" display module (240×320)
-
-| Spec | Value |
-|---|---|
-| Module | ESP32-32E (ESP32, dual-core Xtensa LX6, up to 240 MHz) |
-| RAM | 520 KB SRAM — **no PSRAM required** |
-| Flash | 4 MB |
-| Radio | 2.4 GHz Wi-Fi 802.11 b/g/n (promiscuous mode) |
-| Display | 2.8" 240×320 SPI TFT, ILI9341 or ST7789 controller |
-| Storage | microSD slot (optional, needed only for recording) |
-| Input | BOOT button (GPIO0) |
-| Power | USB, 5 V |
-
-The code is written to work without PSRAM: the display is updated by redrawing only the segments that change, so no full-screen framebuffer is needed.
-
-### Pinout used
-
-| Function | GPIO |
-|---|---|
-| TFT SCK / MOSI / MISO | 14 / 13 / 12 |
-| TFT CS / DC / RST | 15 / 2 / tied to EN (-1) |
-| TFT backlight | 21 |
-| microSD SCK / MISO / MOSI / CS | 18 / 19 / 23 / 5 |
-| Button | 0 (BOOT) |
-
-These are the standard pins for this board family. If your board differs, edit the `#define`s at the top of `src/wifi_eq.ino`.
-
-### microSD card
-- FAT32 formatted
-- Only needed for recording; the scanner runs fine without a card
+- **[esp32/README.md](esp32/README.md)**: original 2.4 GHz version
+- **[esp32-c5/README.md](esp32-c5/README.md)**: dual-band ESP32-C5 version
 
 ---
 
-## Installation
+## Quick start
 
-### Requirements
-- [PlatformIO](https://platformio.org/) (CLI or the VS Code extension)
-- USB cable to the board
+1. Install [PlatformIO](https://platformio.org/): the CLI (`pip install platformio`) or the VS Code extension.
+2. Clone this repository:
+   ```bash
+   git clone https://github.com/<your-username>/<your-repo>.git
+   cd <your-repo>
+   ```
+3. Go into the folder for **your** board, then build and flash:
+   ```bash
+   cd esp32        # original ESP32 board
+   # or
+   cd esp32-c5     # NM-CYD-C5 (ESP32-C5)
 
-Libraries are installed automatically by PlatformIO from `platformio.ini`:
-- Adafruit GFX Library
-- Adafruit ILI9341
-- Adafruit ST7735 and ST7789 Library
+   pio run -t upload
+   ```
+   Always run `pio` from inside a board folder. Each one has its own `platformio.ini`, and flashing one board's build onto the other fails.
 
-### Build and flash
-
-```bash
-git clone https://github.com/<your-username>/<your-repo>.git
-cd <your-repo>
-pio run -t upload
-```
-
-If PlatformIO can't find the board, specify the port:
-
-```bash
-pio run -t upload --upload-port /dev/ttyUSB0     # Linux / Raspberry Pi
-pio run -t upload --upload-port COM5             # Windows
-```
-
-Optional serial monitor (SD status, recording summaries):
-
-```bash
-pio device monitor -b 115200
-```
-
-### Display driver
-The default build is for the **ILI9341** controller. If your screen shows garbage or nothing, your board probably has an **ST7789** — uncomment these lines in `platformio.ini`:
-
-```ini
-build_flags =
-  -DLCD_ST7789
-```
-
-If the image is upside down, change `ROTATION` from `1` to `3` in the sketch.
+Required libraries download automatically on the first build. For the ESP32-C5, that first build also downloads a large toolchain and can take a while; see its README.
 
 ---
 
-## Usage
+## What it shows
 
-| Action | Result |
-|---|---|
-| Short press **BOOT** | Switch between Spectrum and Live Packets |
-| Hold **BOOT** ~1 s | Start / stop recording to microSD |
+- **Spectrum:** LED-style bars rise and fall with signal strength on each Wi-Fi channel, with floating peak caps, like a stereo equalizer.
+- **Networks:** the strongest nearby networks, with channel, signal strength and name.
+- **Live packets:** a color-coded feed of beacons, devices searching for networks, joins, disconnects and data traffic (headers only; contents are encrypted and never decoded).
+- **Recording:** captures to microSD in standard `.pcap` format, with channel and signal strength per packet, ready for [Wireshark](https://www.wireshark.org/) or `tshark`.
 
-The scanner hops channels 1–13 continuously in the background, so switching screens is instant and the network list stays current either way.
+---
 
-### Analyzing recordings
+## Repository layout
 
-Open `cap_NNNN.pcap` in [Wireshark](https://www.wireshark.org/), or get plain text with `tshark`:
-
-```bash
-sudo apt install tshark
-tshark -r cap_0001.pcap                         # one line per packet
-tshark -r cap_0001.pcap -Y "wlan.fc.type_subtype == 0x0c"   # deauth frames only
-tshark -r cap_0001.pcap -T fields -e radiotap.dbm_antsignal -e wlan.sa -e wlan.ssid
+```
+.
+├── README.md              # this file
+├── .gitignore             # ignores build output and packet captures
+├── esp32/                 # original ESP32, 2.4 GHz only
+│   ├── platformio.ini
+│   ├── README.md
+│   └── src/wifi_eq.ino
+└── esp32-c5/              # ESP32-C5, 2.4 + 5 GHz, touch controls
+    ├── platformio.ini
+    ├── README.md
+    └── src/wifi_eq_c5.cpp
 ```
 
 ---
 
-## Configuration
+## Ideas for the future
 
-Tuning constants are at the top of `src/wifi_eq.ino`:
-
-| Constant | Default | Effect |
-|---|---|---|
-| `DWELL_MS` | 70 | Time spent listening on each channel |
-| `FIRST_CH` / `LAST_CH` | 1 / 13 | Channel range scanned |
-| `RSSI_FLOOR` / `RSSI_CEIL` | -95 / -30 | dBm shown as empty / full |
-| `ATTACK` | 0.55 | How quickly bars rise |
-| `FALL_PER_FRAME` | 0.022 | How quickly bars fall |
-| `CHAN_DECAY` | 0.965 | How hard bars "pump" between sweeps |
-| `PEAK_HOLD` / `PEAK_FALL` | 18 / 0.012 | Peak cap hang time and fall speed |
-| `AP_TIMEOUT_MS` | 30000 | How long a network stays listed after it's last heard |
-| `LONG_PRESS_MS` | 1000 | Hold time to toggle recording |
-
----
-
-## Limitations
-
-- **2.4 GHz only.** The original ESP32 radio cannot receive 5 GHz or 6 GHz Wi-Fi.
-- **Wi-Fi only.** The ESP32 reports decoded Wi-Fi packets, not raw RF energy, so Bluetooth, microwaves, cameras and other non-Wi-Fi sources don't appear on the spectrum.
-- **Timestamps** in recordings count from power-on (the board has no real-time clock), so Wireshark shows 1970 dates. Relative timing between packets is accurate.
-- **MAC randomization.** Modern phones use random MAC addresses when probing, so one device can appear under several addresses.
-- **Very busy environments** can outpace the SD card; dropped packets are reported on the serial monitor when recording stops.
-
----
-
-## Roadmap ideas
-
-- nRF24L01+ add-on for true 2.4 GHz energy scanning (126 × 1 MHz bins — shows Bluetooth, microwaves, etc.)
-- BLE device scanner screen
-- Lock to a single channel
+- nRF24L01+ add-on for raw 2.4 GHz energy scanning (shows Bluetooth, microwaves and other non-Wi-Fi signals)
+- Bluetooth LE device scanner screen
 - CC1101 add-on for sub-GHz bands (315 / 433 / 915 MHz)
 
 ---
 
 ## Responsible use
 
-This is a passive, listen-only tool, intended for learning, troubleshooting your own network and surveying your RF environment. Captures can contain MAC addresses and the network names that nearby devices are searching for — treat recordings made in public as sensitive, and follow local laws regarding wireless monitoring.
-
----
-
-## Project structure
-
-```
-.
-├── platformio.ini     # board, libraries, build options
-├── src/
-│   └── wifi_eq.ino    # the whole application
-└── README.md
-```
+Wi-Fi EQ is a passive, listen-only tool for learning, troubleshooting your own network and surveying your RF environment. Packet captures can contain MAC addresses and the network names nearby devices are searching for, so treat recordings made in public as sensitive and follow local laws on wireless monitoring. Captures (`*.pcap`) are kept out of this repository by `.gitignore`.
